@@ -4,7 +4,9 @@
 #include <stdbool.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
-#include <emscripten.h>
+#ifdef WEBBUILD
+    #include <emscripten.h>
+#endif
 
 // Do something, if it goes wrong break the program
 #define ASSERT(_e, ...) if (!(_e)) { fprintf(stderr, __VA_ARGS__); exit(1); }
@@ -24,8 +26,9 @@ typedef size_t   usize;
 typedef ssize_t  isize;
 
 // Define window dimensions
-#define WINDOW_WIDTH 768
-#define WINDOW_HEIGHT 432
+#define WINDOW_WIDTH 640
+#define WINDOW_HEIGHT 400
+
 // Stolen from JDH
 // Define vector 2 with float and int
 typedef struct v2_s { f32 x, y; } v2;
@@ -55,18 +58,28 @@ typedef struct v2i_s { i32 x, y; } v2i;
         (__typeof__(a))(_a < 0 ? -1 : (_a > 0 ? 1 : 0)); \
     })
 
-#define MAP_SIZE 10
+#define MAP_SIZE 20
 static u8 MAPDATA[MAP_SIZE * MAP_SIZE] = {
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-    1, 0, 0, 0, 0, 3, 0, 0, 0, 1,
-    1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-    1, 0, 2, 0, 4, 4, 0, 0, 0, 1,
-    1, 0, 0, 0, 4, 0, 0, 0, 0, 1,
-    1, 0, 3, 0, 0, 0, 0, 0, 0, 1,
-    1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-    1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 };
 
 // The struct containing most of the games actually... 
@@ -80,10 +93,15 @@ struct {
     // a buffer to contain the pixels to draw on screen
     u32 pixels[WINDOW_WIDTH * WINDOW_HEIGHT];
     // a bool to keep track of whether to run the mainloop or not
-
+    bool quit;
+    // the distance to the object in front.
+    f32 FDist;
+    
     // three vectors to keep track of the position, direction
     // and something I am yet to understand.
     v2 pos, dir, plane;
+    // + the currently looked upon point
+    v2i lookingat;
 } state;
 
 // draw vertical line on x placement between y0 and y1
@@ -142,7 +160,7 @@ void init()
     // for 0,0 start
     state.pos = (v2) { 2, 2 };
     // set the current direction of the player
-    state.dir = normalize(((v2) { -1.0f, 0.1f }));
+    state.dir = normalize(((v2) { 1.0f, 0.1f }));
     // still unsure
     state.plane = (v2) { 0.0f, 0.66f };
 }
@@ -155,7 +173,45 @@ static void rotate(f32 rot) {
     state.plane.y = p.x * sin(rot) + p.y * cos(rot);
 }
 
+void move(float x, float y, bool reverse = false)
+{
+    std::cout << std::to_string(state.FDist) + "\n";
+    v2 cpos = state.pos;
+
+    if (reverse==true)
+    {
+        cpos.x -= x;
+        cpos.y -= y;
+    } else {
+        cpos.x += x;
+        cpos.y += y;
+    }
+
+    //std::cout << ":" + std::to_string(state.pos.x) + "," + std::to_string(state.pos.y) + ":\n";
+
+    if (cpos.x >= 1
+        && cpos.x <= MAP_SIZE - 1
+        && cpos.y >= 1
+        && cpos.y <= MAP_SIZE - 1
+        )
+    {
+        state.pos = cpos;
+    }
+}
+
 void process_input() {
+    #ifdef WEBBUILD
+    #else
+        SDL_Event ev;
+        while (SDL_PollEvent(&ev)) {
+            switch (ev.type) {
+                case SDL_QUIT:
+                    state.quit = true;
+                    break;
+            }
+        }
+    #endif
+
     const f32
         rotspeed = 3.0f * 0.016f,
         movespeed = 3.0f * 0.016f;
@@ -163,31 +219,34 @@ void process_input() {
     const u8 *keystate = SDL_GetKeyboardState(NULL);
 
     if (keystate[SDL_SCANCODE_Q] || keystate[SDL_SCANCODE_PAGEUP]) {
-        rotate(+rotspeed);
-    }
-
-    if (keystate[SDL_SCANCODE_E] || keystate[SDL_SCANCODE_PAGEDOWN]) {
         rotate(-rotspeed);
     }
 
+    if (keystate[SDL_SCANCODE_E] || keystate[SDL_SCANCODE_PAGEDOWN]) {
+        rotate(+rotspeed);
+    }
+
     if (keystate[SDL_SCANCODE_W] || keystate[SDL_SCANCODE_UP]) {
-        state.pos.x += state.dir.x * movespeed;
-        state.pos.y += state.dir.y * movespeed;
+        move(state.dir.x * movespeed,
+            state.dir.y * movespeed);
     }
 
     if (keystate[SDL_SCANCODE_S] || keystate[SDL_SCANCODE_DOWN]) {
-        state.pos.x -= state.dir.x * movespeed;
-        state.pos.y -= state.dir.y * movespeed;
+        move(state.dir.x * movespeed,
+            state.dir.y * movespeed,
+            true);
     }
 
     if (keystate[SDL_SCANCODE_A] || keystate[SDL_SCANCODE_LEFT]) {
-        state.pos.x += (state.dir.x * cos(1.5f) - state.dir.y * sin(1.5f)) * movespeed;
-        state.pos.y += (state.dir.x * sin(1.5f) + state.dir.y * cos(1.5f)) * movespeed;
+        move((state.dir.x * cos(1.5f) - state.dir.y * sin(1.5f)) * movespeed,
+            (state.dir.x * sin(1.5f) + state.dir.y * cos(1.5f)) * movespeed,
+            true);
     }
 
     if (keystate[SDL_SCANCODE_D] || keystate[SDL_SCANCODE_RIGHT]) {
-        state.pos.x += (state.dir.x * cos(-1.5f) - state.dir.y * sin(-1.5f)) * movespeed;
-        state.pos.y += (state.dir.x * sin(-1.5f) + state.dir.y * cos(-1.5f)) * movespeed;
+        move((state.dir.x * cos(-1.5f) - state.dir.y * sin(-1.5f)) * movespeed,
+            (state.dir.x * sin(-1.5f) + state.dir.y * cos(-1.5f)) * movespeed,
+            true);
     }
 }
 
@@ -237,21 +296,13 @@ void draw()
                 hit.side = 1;
             }
 
-            // kill player if they leave map
-            //ASSERT(
-            //    ipos.x >= 0
-            //    && ipos.x < MAP_SIZE
-            //    && ipos.y >= 0
-            //    && ipos.y < MAP_SIZE,
-            //    "DDA out of bounds");
-
             hit.val = MAPDATA[ipos.y * MAP_SIZE + ipos.x];
         }
 
         // set colors
         u32 color;
         switch (hit.val) {
-        case 1: color = 0xFFFFFFFF; break;
+        case 1: color = 0xFF00FFFF; break;
         case 2: color = 0xFFFFFFFF; break;
         case 3: color = 0xFFFFFFFF; break;
         case 4: color = 0xFFFFFFFF; break;
@@ -267,17 +318,15 @@ void draw()
         }
 
         // distance to hit
-        const f32 dperp =
+        state.FDist =
             hit.side == 0 ?
                 (sidedist.x - deltadist.x)
                 : (sidedist.y - deltadist.y);
 
         // perform perspective division, calculate line height relative to
         // screen center
-        std::cout << std::to_string(dperp);
-
         const int
-            h = (int) (WINDOW_HEIGHT / dperp),
+            h = (int) (WINDOW_HEIGHT / state.FDist),
             y0 = max((WINDOW_HEIGHT / 2) - (h / 2), 0),
             y1 = min((WINDOW_HEIGHT / 2) + (h / 2), WINDOW_HEIGHT - 1);
 
@@ -321,7 +370,13 @@ int main()
     setupSDL();
     init();
 
-    emscripten_set_main_loop(main_loop, 60, true);
+    #ifdef WEBBUILD
+        emscripten_set_main_loop(main_loop, 60, true);
+    #else
+        while (!state.quit) {
+            main_loop();
+        }
+    #endif
 
     destroy();
     return EXIT_SUCCESS;
